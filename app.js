@@ -1,9 +1,32 @@
 'use strict';
 
 const byId = (id) => document.getElementById(id);
-let units = 'us';
-let goal = 'maintain';
+const preferenceKey = 'good-measure-preferences-v1';
+
+function readPreferences() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(preferenceKey) || '{}');
+    return {
+      units: saved.units === 'metric' ? 'metric' : 'us',
+      goal: ['maintain', 'lose', 'gain'].includes(saved.goal) ? saved.goal : 'maintain'
+    };
+  } catch {
+    return { units: 'us', goal: 'maintain' };
+  }
+}
+
+const preferences = readPreferences();
+let units = preferences.units;
+let goal = preferences.goal;
 let dailyCalories = null;
+
+function savePreferences() {
+  try {
+    localStorage.setItem(preferenceKey, JSON.stringify({ units, goal }));
+  } catch {
+    // The calculator still works if browser storage is unavailable.
+  }
+}
 
 const macroInputs = {
   protein: byId('proteinInput'),
@@ -57,6 +80,37 @@ function updateMacroControls(changedInput) {
   if (dailyCalories !== null) updateMacroResults();
 }
 
+function applyUnitSettings(clearMeasurements = false) {
+  const metric = units === 'metric';
+
+  document.querySelectorAll('[data-units]').forEach((item) => {
+    const selected = item.dataset.units === units;
+    item.classList.toggle('active', selected);
+    item.setAttribute('aria-pressed', String(selected));
+  });
+
+  if (clearMeasurements) {
+    byId('heightA').value = '';
+    byId('heightB').value = '';
+    byId('weight').value = '';
+  }
+  byId('heightA').placeholder = metric ? 'e.g. 170' : '5';
+  byId('heightA').setAttribute('aria-label', metric ? 'Height centimeters' : 'Height feet');
+  byId('heightUnitA').textContent = metric ? 'cm' : 'ft';
+  byId('heightBWrap').classList.toggle('is-hidden', metric);
+  byId('heightB').required = !metric;
+  byId('weight').placeholder = metric ? 'e.g. 75' : 'e.g. 165';
+  byId('weightUnit').textContent = metric ? 'kg' : 'lb';
+}
+
+function applyGoalSettings() {
+  document.querySelectorAll('[data-goal]').forEach((item) => {
+    const selected = item.dataset.goal === goal;
+    item.classList.toggle('active', selected);
+    item.setAttribute('aria-pressed', String(selected));
+  });
+}
+
 function updateMacroResults() {
   const values = getMacroSplit();
   const valid = isValidMacroSplit(values);
@@ -82,34 +136,16 @@ for (const [name, input] of Object.entries(macroInputs)) {
 document.querySelectorAll('[data-units]').forEach((button) => {
   button.addEventListener('click', () => {
     units = button.dataset.units;
-    document.querySelectorAll('[data-units]').forEach((item) => {
-      const selected = item === button;
-      item.classList.toggle('active', selected);
-      item.setAttribute('aria-pressed', String(selected));
-    });
-
-    byId('heightA').value = '';
-    byId('heightB').value = '';
-    byId('weight').value = '';
-    const metric = units === 'metric';
-    byId('heightA').placeholder = metric ? 'e.g. 170' : '5';
-    byId('heightA').setAttribute('aria-label', metric ? 'Height centimeters' : 'Height feet');
-    byId('heightUnitA').textContent = metric ? 'cm' : 'ft';
-    byId('heightBWrap').classList.toggle('is-hidden', metric);
-    byId('heightB').required = !metric;
-    byId('weight').placeholder = metric ? 'e.g. 75' : 'e.g. 165';
-    byId('weightUnit').textContent = metric ? 'kg' : 'lb';
+    applyUnitSettings(true);
+    savePreferences();
   });
 });
 
 document.querySelectorAll('[data-goal]').forEach((button) => {
   button.addEventListener('click', () => {
     goal = button.dataset.goal;
-    document.querySelectorAll('[data-goal]').forEach((item) => {
-      const selected = item === button;
-      item.classList.toggle('active', selected);
-      item.setAttribute('aria-pressed', String(selected));
-    });
+    applyGoalSettings();
+    savePreferences();
   });
 });
 
@@ -165,4 +201,6 @@ byId('calculator').addEventListener('submit', (event) => {
   }
 });
 
+applyUnitSettings();
+applyGoalSettings();
 updateMacroControls();
