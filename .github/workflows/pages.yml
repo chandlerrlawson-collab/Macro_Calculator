@@ -1,20 +1,25 @@
+# Beginner guide: YAML is a text format used for settings. This GitHub Actions workflow is a saved set of automated steps that publishes the website to GitHub Pages.
 name: Deploy static site to GitHub Pages
 
+# These triggers start a deployment after a change reaches main, or when manually requested.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+# Permissions describe what the automation is allowed to do; these are limited to reading the code and publishing the site.
 permissions:
   contents: read
   actions: read
   pages: write
   id-token: write
 
+# Concurrency prevents multiple publishing jobs from stepping on each other.
 concurrency:
   group: pages
   cancel-in-progress: false
 
+# A job is a group of steps run together on a temporary GitHub-hosted computer (runner).
 jobs:
   deploy:
     environment:
@@ -22,17 +27,21 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
+      # Get a copy of the repository files for this run.
       - name: Check out the repository
         uses: actions/checkout@v6
 
+      # Prepare GitHub Pages publishing settings.
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
 
+      # Package the website files as an artifact, meaning a saved bundle for the next step.
       - name: Package the website
         uses: actions/upload-pages-artifact@v5
         with:
           path: .
 
+      # Publish that package and provide the public site address.
       - name: Publish the website
         id: deployment
         uses: actions/deploy-pages@v5
